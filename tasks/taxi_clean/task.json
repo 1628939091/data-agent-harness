@@ -1,0 +1,5 @@
+{
+  "task_id": "taxi_clean",
+  "instruction": "网约车运营数据清洗。data/trips_raw.csv 是某出行平台 2019 年 3 月的真实运营流水（NYC 出租车公开数据，含脏数据）。请按以下规则清洗，并把结果写为工作目录下的 trips_clean.csv（列名与原文件完全一致，保持原有行顺序）：\n1. 剔除无效行程：passengers == 0（代驾/系统记录）或 distance <= 0（里程异常）；\n2. 剔除 pickup_zone 为空的行（归属地不明）；\n3. 完全重复的行只保留第一次出现（采集端可能重复上报）；\n4. 其他字段原样保留。",
+  "checker": { "type": "csv_equals", "file": "trips_clean.csv", "expected": "expected_trips_clean.csv" }
+}

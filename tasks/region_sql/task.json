@@ -1,0 +1,12 @@
+{
+  "task_id": "region_sql",
+  "instruction": "区域销售统计。data/shop.db 是门店销售库（regions 表：id,name；orders 表：id,region_id,amount，其中 amount 为负数的是退款）。请统计每个区域的销售总额（只统计 amount > 0 的正常订单，不含退款），结果写为工作目录下的 result.json，格式：{\"results\": {\"华东\": 12345.67, ...}}，金额保留两位小数，区域按名称排序不要求。",
+  "checker": {
+    "type": "json_key_equals",
+    "file": "result.json",
+    "key": "results",
+    "db": "shop.db",
+    "sql": "SELECT r.name, SUM(o.amount) FROM orders o JOIN regions r ON o.region_id = r.id WHERE o.amount > 0 GROUP BY r.name",
+    "tolerance": 0.01
+  }
+}

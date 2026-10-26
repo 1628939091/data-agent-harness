@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+
+# 评测产物（本地临时输出，不入库）
+outputs/
+
+# 任务数据不入库：gen_data.py 用固定种子确定性生成，克隆后首次运行自动重建
+# （金标准也在其中，且不应与代码混在一起管理）
+tasks/*/data/
+
+# 系统杂项
+.DS_Store
+Thumbs.db
+
+# 安全：绝不上传任何密钥文件
+.env
+*.key
+apikey*.txt

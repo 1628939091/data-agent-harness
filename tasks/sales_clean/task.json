@@ -1,0 +1,5 @@
+{
+  "task_id": "sales_clean",
+  "instruction": "销售数据清洗。data/sales_raw.csv 是某零售企业 9 月的销售流水（含脏数据）。请按以下规则清洗，并把结果写为工作目录下的 clean.csv（列名与原文件完全一致，保持原有行顺序）：\n1. 剔除 qty <= 0 的行（退货与录入错误）；\n2. 完全重复的行只保留第一次出现；\n3. 把 date 统一为 YYYY-MM-DD 格式（原始数据混有 2026/9/5 这类格式）；\n4. 其他字段原样保留。",
+  "checker": { "type": "csv_equals", "file": "clean.csv", "expected": "expected_clean.csv" }
+}
