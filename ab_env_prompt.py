@@ -34,7 +34,12 @@ def run_arm(on: bool, k: int, use_api: bool) -> dict:
     os.environ["DAH_ENV_PROMPT"] = "1" if on else "0"
     api_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
     if use_api and not api_key:
-        print("[错误] api 模式需要 DEEPSEEK_API_KEY")
+        print("[错误] api 模式需要 DEEPSEEK_API_KEY\n"
+              "环境变量只对设置它的那个终端窗口有效，新开的窗口要重设一次：\n"
+              "  PowerShell:  $env:DEEPSEEK_API_KEY = \"sk-你的key\"\n"
+              "  CMD:         set DEEPSEEK_API_KEY=sk-你的key\n"
+              "  bash/WSL:    export DEEPSEEK_API_KEY=sk-你的key\n"
+              "设好后在同一条命令里跑：python ab_env_prompt.py api 3")
         sys.exit(1)
     config = {
         "tasks": TASKS, "scaffolds": SCAFFOLDS, "repeats": k,
