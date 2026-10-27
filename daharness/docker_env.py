@@ -27,7 +27,7 @@ import shutil
 import subprocess
 import uuid
 
-from .env import SandboxEnv
+from .env import SandboxEnv, PROBE_MODULES
 
 
 class DockerEnv(SandboxEnv):
@@ -55,6 +55,31 @@ class DockerEnv(SandboxEnv):
         # 2) 数据库文件也在 workspace 里，容器内路径同步转换
         if db_file:
             self.db_file = os.path.join(self.workspace, os.path.basename(db_file))
+        self._libs: list[str] | None = None
+
+    # ---------------- 覆盖：环境自述 ----------------
+    def describe(self) -> dict:
+        """容器里没有宿主机的 sys.executable，必须按容器实际情况回答。"""
+        info = super().describe()
+        info["python"] = "python3"      # 容器内解释器（PATH 里就有，无需绝对路径）
+        info["libs"] = self._probe_libs()
+        return info
+
+    def _probe_libs(self) -> list[str]:
+        """进容器探一次真实可导入的库（结果缓存，每次运行只探一次）。"""
+        if self._libs is None:
+            try:
+                code = ("import importlib.util as u;"
+                        "print(','.join(m for m in %r if u.find_spec(m)))"
+                        % (PROBE_MODULES,))
+                p = subprocess.run(
+                    ["docker", "exec", self.container, "python3", "-c", code],
+                    capture_output=True, text=True, encoding="utf-8",
+                    errors="replace", timeout=30)
+                self._libs = [x for x in (p.stdout or "").strip().split(",") if x]
+            except Exception:  # noqa: BLE001 —— 探测失败不能影响评测
+                self._libs = []
+        return self._libs
 
     # ---------------- 覆盖：工具实现 ----------------
     def _shell(self, cmd: str) -> str:

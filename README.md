@@ -34,7 +34,8 @@ python run_demo.py docker         # Docker 沙箱（需先构建镜像）
 
 ```
 data-agent-harness/
-├── run_demo.py                 # 一键入口：3任务 × 3 scaffold × 3重复
+├── run_demo.py                 # 一键入口：4任务 × 3 scaffold × k重复
+├── ab_env_prompt.py            # 环境告知 A/B 消融（两臂对跑，直接出差值表）
 ├── smoke_api.py                # 真实 API 单任务冒烟（先跑这个再跑全量）
 ├── linux_setup.sh              # Linux 一键部署（5 步，每步可验证）
 ├── Dockerfile                  # 沙箱镜像（sqlite3/jq/pandas/duckdb，非 root 用户）
@@ -62,7 +63,9 @@ data-agent-harness/
 3. **环境与 agent 解耦**：`build_env()` 工厂——有 Docker 用容器（文件系统隔离 + 非 root + 断网 + 内存/CPU 上限），没有就回退本地临时目录，**agent 代码一行不改**。这就是"harness"的架构意义。
 4. **金标准现场计算**：期望答案由检查器直接对源数据跑金标准 SQL/汇总算出，不维护静态答案文件——评测基准建设最容易踩的坑（答案和数据脱节）被结构性避免。
 5. **异常即观测**：工具出错（含超时）全部转成观测文本返回给模型，不抛异常——agent 必须"看到"自己的错误才能反思。
-6. **统计素养**：所有 pass@1 带 Bootstrap 95% CI；pass^k（k 次全对概率）作为上线可靠性指标——这是统计学生做工程项目的差异化标签。
+6. **环境自述，提示词不撒谎**：解释器路径、可用库、目录文件清单都由 `env.describe()` 提供，
+   本地后端与 Docker 后端各说各的真话；提示词只拿"环境元信息"，不拿任务内容（行列数、脏数据分布）。
+7. **统计素养**：所有 pass@1 带 Bootstrap 95% CI；pass^k（k 次全对概率）作为上线可靠性指标——这是统计学生做工程项目的差异化标签。
 
 ## 三种 Scaffold（消融实验的研究变量）
 
@@ -99,6 +102,14 @@ export DAH_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 export DAH_MODEL=qwen-plus
 python smoke_api.py qwen-plus
 ```
+
+实验参数同样走环境变量（默认值 = 上文 120 跑的口径）：
+
+| 变量 | 作用 | 默认 |
+|---|---|---|
+| `DAH_REPEATS` | 每个配置重复次数 k | `3` |
+| `DAH_ENV_PROMPT` | 提示词里补"只有标准库 + 文件清单" | `0`（关） |
+| `DAH_OUT` | 报告文件名（A/B 时分开存） | `report.md` |
 
 ## 真实数据任务：taxi_clean（真实分布 + 受控污染）
 
@@ -202,6 +213,34 @@ weekly_report  reflect_retry  1.00    1.00     7.6   14094
 一句话终版面试话术：**"我用 120 次评测发现：对强模型，pass 率会饱和，此时 scaffold
 选型的决策变量从可靠性变成成本——plan_execute 比 react 贵 70% 却买不到任何东西。
 这个结论如果只跑 3 次是得不出来的，我中途就被小样本翻转过一次排名。"**
+
+### 环境告知 A/B：一句提示词的降本实验（`DAH_ENV_PROMPT`）
+
+轨迹分析里最明显的浪费是**环境摸索**：模型先 `import pandas` 撞墙，再猜数据在哪个目录，
+3 轮之后才开始干活。这两件事都属于"环境事实"，harness 完全可以告诉它：
+
+```
+# 运行环境（臂 B 多出的两行）
+环境里只有 Python 标准库（没有 pandas / numpy），请用 csv、sqlite3 等标准库处理。
+当前目录下已有文件：trips_raw.csv。
+```
+
+- **默认关闭**：保持与上面 120 跑的口径可比，也让这个开关本身成为一组消融实验。
+- **环境事实由环境自己回答**：`SandboxEnv.describe()` / `DockerEnv.describe()` 各说真话
+  （本地后端是宿主机 Python，Docker 后端是容器里的 `python3` 且装有 pandas），
+  提示词里不硬写任何路径。
+- **只给环境元信息，不给任务内容**：文件清单可以给，行列数和脏数据分布不给——
+  否则测的就不是"会不会探索"，而是"会不会照着做"。
+
+一键跑两臂并打印差值：
+
+```bash
+python ab_env_prompt.py api 3     # 4 任务 × 3 scaffold × 3 重复 × 2 臂 = 72 跑
+```
+
+顺带修掉两个会让提示词"说假话"的 bug：四个 `task.json` 里写的 `data/xxx` 路径与沙箱
+实际布局不符（文件在 workspace 根目录）；以及 `agents.py` 用 `sys.executable` 硬编码解释器，
+在 Docker 后端下必然错误。
 
 ## 已知局限（写在前面，别等被问）
 

@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import shutil
 import sqlite3
@@ -24,6 +25,17 @@ import tempfile
 # 绝不能进入 agent 的 workspace —— 否则模型"自检"甚至直接抄答案，
 # 评测就被污染了（benchmark contamination）。
 GOLDEN_PREFIXES = ("expected_", "golden_", "answer_")
+
+# 环境自述时要探的第三方库：模型最常假设"有 pandas"，
+# 探错一次就要白花 1–2 轮试错，所以这里按真实导入能力探测，不靠猜。
+PROBE_MODULES = ("pandas", "numpy", "duckdb")
+
+
+def _has_module(name: str) -> bool:
+    try:
+        return importlib.util.find_spec(name) is not None
+    except (ImportError, ValueError):
+        return False
 
 
 class SandboxEnv:
@@ -43,6 +55,22 @@ class SandboxEnv:
             src = os.path.join(self.data_dir, name)
             if os.path.isfile(src):
                 shutil.copy(src, os.path.join(self.workspace, name))
+
+    # ---------------- 环境自述 ----------------
+    # 提示词里关于"环境"的那几句话必须问环境自己，不能由 agents.py 硬写：
+    # 本地后端用宿主机 Python（可能只有标准库），Docker 后端用容器里的 python3
+    # （镜像内装了 pandas/duckdb）——写死一句必然在其中一种后端上是假的。
+    def describe(self) -> dict:
+        """返回 agent 需要知道的"环境元信息"（不含任务内容：行列数、脏数据分布）。"""
+        files = sorted(
+            n for n in os.listdir(self.workspace)
+            if os.path.isfile(os.path.join(self.workspace, n))
+        )
+        return {
+            "python": sys.executable,
+            "libs": [m for m in PROBE_MODULES if _has_module(m)],
+            "files": files,
+        }
 
     # ---------------- 工具实现 ----------------
     def run_tool(self, tool: str, args: dict) -> str:

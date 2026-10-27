@@ -66,7 +66,9 @@ def run_benchmark(config: dict, tasks_root: str) -> dict:
                     })
                 finally:
                     env.cleanup()
-    return {"records": results, "k": k, "summary": _summarize(results, k)}
+    return {"records": results, "k": k,
+            "env_prompt": bool(config.get("env_prompt", False)),
+            "summary": _summarize(results, k)}
 
 
 def _run_with_scaffold(agent: BaseAgent, task, scaffold: str,

@@ -14,10 +14,20 @@ Harness 的意义：三种 scaffold 跑在完全相同的环境/数据/评分器
 from __future__ import annotations
 
 import json
+import os
 import re
-import sys
 
 from .llm import SYSTEM_PROMPT
+
+
+def env_prompt_enabled() -> bool:
+    """是否在提示词里补"环境能力 + 文件清单"（DAH_ENV_PROMPT=1 开启）。
+
+    默认关闭。关掉不是因为它没用（实测能省 1–2 轮环境摸索），
+    而是为了和历史 120 跑的读数保持可比 —— 这正是做 A/B 消融的开关。
+    """
+    return os.environ.get("DAH_ENV_PROMPT", "").strip().lower() \
+        not in ("", "0", "false", "off", "no")
 
 
 def extract_action(text: str) -> dict | None:
@@ -42,11 +52,23 @@ class BaseAgent:
         self.max_steps = max_steps
 
     def new_messages(self, instruction: str, extra: str = "") -> list[dict]:
+        # 环境事实一律问 env 要（describe），不在这一层硬写：
+        # 本地后端是宿主机 Python、可能只有标准库；Docker 后端是容器里的 python3、带 pandas。
+        info = self.env.describe()
         user = (f"# 任务\n{instruction}\n\n"
-                f"# 工作目录\n数据文件就在当前工作目录下（如 sales_raw.csv、shop.db），"
+                f"# 工作目录\n数据文件就在当前工作目录下，"
                 f"可直接 read_file 或用 shell 处理。\n"
-                f"# 运行环境\n解释器是 {sys.executable}；如果 `python` 不在 PATH 里，"
+                f"# 运行环境\n解释器是 {info['python']}；如果 `python` 不在 PATH 里，"
                 f"请用这个绝对路径执行脚本。\n")
+        if env_prompt_enabled():
+            # 只给"环境元信息"（有什么库、目录里有什么文件），
+            # 不给任务内容（几列几行、脏数据分布）—— 那是 agent 该自己探索的部分。
+            if info["libs"]:
+                user += f"已安装的第三方库：{', '.join(info['libs'])}。\n"
+            else:
+                user += ("环境里只有 Python 标准库（没有 pandas / numpy），"
+                         "请用 csv、sqlite3 等标准库处理。\n")
+            user += f"当前目录下已有文件：{', '.join(info['files']) or '（空）'}。\n"
         if extra:
             user += f"\n# 补充信息\n{extra}\n"
         return [{"role": "system", "content": SYSTEM_PROMPT},

@@ -1,6 +1,6 @@
 {
   "task_id": "weekly_report",
-  "instruction": "生成周报。data/sales_raw.csv 是门店本周销售流水（qty <= 0 是退货/作废单，不计入任何统计）。请统计并生成工作目录下的 report.md，内容必须包含以下三行（格式固定）：\n- 总销售额: <数字> 元\n- 销量最高产品: <产品名>\n- 有效订单数: <数字>\n其中总销售额 = sum(qty * price)，只统计 qty > 0 的订单。",
+  "instruction": "生成周报。sales_raw.csv 是门店本周销售流水（qty <= 0 是退货/作废单，不计入任何统计）。请统计并生成工作目录下的 report.md，内容必须包含以下三行（格式固定）：\n- 总销售额: <数字> 元\n- 销量最高产品: <产品名>\n- 有效订单数: <数字>\n其中总销售额 = sum(qty * price)，只统计 qty > 0 的订单。",
   "checker": {
     "type": "number_in_text_computed",
     "file": "report.md",

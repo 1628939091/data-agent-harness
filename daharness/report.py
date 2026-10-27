@@ -10,7 +10,8 @@ def render_report(result: dict, out_path: str) -> str:
     s = result["summary"]
     lines = [
         "# DataAgent-Harness 评测报告",
-        f"\n生成时间：{datetime.now():%Y-%m-%d %H:%M} | 每配置重复 {result['k']} 次",
+        f"\n生成时间：{datetime.now():%Y-%m-%d %H:%M} | 每配置重复 {result['k']} 次"
+        f" | 环境告知：{'开' if result.get('env_prompt') else '关'}",
         "\n## 一、pass@1 / pass^k / 成本总览\n",
         "| 任务 | Scaffold | pass@1 | 95%CI | pass^k | 平均步数 | 平均token | 平均耗时(s) |",
         "|---|---|---|---|---|---|---|---|",
