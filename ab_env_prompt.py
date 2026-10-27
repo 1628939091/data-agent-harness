@@ -70,27 +70,53 @@ def main() -> None:
     print("[2/2] 臂 B：环境告知开 ……\n")
     on = run_arm(True, k, use_api)
 
-    print("===== A/B 差值（B 相对 A）=====")
-    print(f"  {'任务':<14}{'scaffold':<14}{'步数 A→B':<16}{'token A→B':<22}{'通过率 A→B'}")
+    print("===== 逐格明细（B 相对 A）=====")
+    print(f"  {'任务':<14}{'scaffold':<14}{'步数 A→B':<17}{'token A→B':<25}"
+          f"{'pass@1 A→B':<14}pass^k A→B")
     tot = {"steps": [0.0, 0.0], "tok": [0.0, 0.0], "pass": [0.0, 0.0]}
+    agg = {}
     for key in sorted(off["summary"]):
         a, b = off["summary"][key], on["summary"][key]
-        d_steps = b["avg_steps"] - a["avg_steps"]
-        d_tok = b["avg_tokens"] - a["avg_tokens"]
-        pct = (d_tok / a["avg_tokens"] * 100) if a["avg_tokens"] else 0.0
+        pct = ((b["avg_tokens"] - a["avg_tokens"]) / a["avg_tokens"] * 100
+               if a["avg_tokens"] else 0.0)
         print(f"  {a['task']:<14}{a['scaffold']:<14}"
-              f"{a['avg_steps']:>5.1f} → {b['avg_steps']:<6.1f}"
-              f"{a['avg_tokens']:>7.0f} → {b['avg_tokens']:<7.0f}({pct:+5.1f}%)  "
-              f"{a['pass@1']:.2f} → {b['pass@1']:.2f}")
+              f"{a['avg_steps']:>5.1f} → {b['avg_steps']:<7.1f}"
+              f"{a['avg_tokens']:>7.0f} → {b['avg_tokens']:<7.0f}({pct:+6.1f}%)   "
+              f"{a['pass@1']:.2f} → {b['pass@1']:<5.2f}"
+              f"{a['pass_k']:.2f} → {b['pass_k']:.2f}")
         tot["steps"][0] += a["avg_steps"]; tot["steps"][1] += b["avg_steps"]
         tot["tok"][0] += a["avg_tokens"]; tot["tok"][1] += b["avg_tokens"]
         tot["pass"][0] += a["pass@1"]; tot["pass"][1] += b["pass@1"]
+        s = agg.setdefault(a["scaffold"], {"steps": [0.0, 0.0], "tok": [0.0, 0.0],
+                                           "p1": [0.0, 0.0], "pk": [0.0, 0.0], "n": 0})
+        s["n"] += 1
+        s["steps"][0] += a["avg_steps"]; s["steps"][1] += b["avg_steps"]
+        s["tok"][0] += a["avg_tokens"]; s["tok"][1] += b["avg_tokens"]
+        s["p1"][0] += a["pass@1"]; s["p1"][1] += b["pass@1"]
+        s["pk"][0] += a["pass_k"]; s["pk"][1] += b["pass_k"]
+
+    print("\n===== 按 scaffold 汇总（跨任务平均，这才是消融要看的那张表）=====")
+    print(f"  {'scaffold':<14}{'步数 A→B':<17}{'token A→B':<25}"
+          f"{'pass@1 A→B':<14}pass^k A→B")
+    for sc in SCAFFOLDS:
+        if sc not in agg:
+            continue
+        s, m = agg[sc], agg[sc]["n"]
+        pct = ((s["tok"][1] - s["tok"][0]) / s["tok"][0] * 100
+               if s["tok"][0] else 0.0)
+        print(f"  {sc:<14}"
+              f"{s['steps'][0]/m:>5.1f} → {s['steps'][1]/m:<7.1f}"
+              f"{s['tok'][0]/m:>7.0f} → {s['tok'][1]/m:<7.0f}({pct:+6.1f}%)   "
+              f"{s['p1'][0]/m:.2f} → {s['p1'][1]/m:<5.2f}"
+              f"{s['pk'][0]/m:.2f} → {s['pk'][1]/m:.2f}")
+
     n = len(off["summary"]) or 1
     d_tok = tot["tok"][1] / n - tot["tok"][0] / n
-    print(f"\n  平均：步数 {tot['steps'][0]/n:.1f} → {tot['steps'][1]/n:.1f}"
+    print(f"\n  总体平均：步数 {tot['steps'][0]/n:.1f} → {tot['steps'][1]/n:.1f}"
           f" | token {tot['tok'][0]/n:.0f} → {tot['tok'][1]/n:.0f}"
           f"（{d_tok / (tot['tok'][0]/n) * 100:+.1f}%）"
           f" | pass@1 {tot['pass'][0]/n:.2f} → {tot['pass'][1]/n:.2f}")
+    print(f"  注：每格只有 {k} 次重复，单格差值方差很大；pass^k 在 k<5 时基本只有 0 和 1 两个值。")
 
 
 if __name__ == "__main__":

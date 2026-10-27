@@ -23,8 +23,10 @@ from .llm import SYSTEM_PROMPT
 def env_prompt_enabled() -> bool:
     """是否在提示词里补"环境能力 + 文件清单"（DAH_ENV_PROMPT=1 开启）。
 
-    默认关闭。关掉不是因为它没用（实测能省 1–2 轮环境摸索），
-    而是为了和历史 120 跑的读数保持可比 —— 这正是做 A/B 消融的开关。
+    默认关闭。关掉不是因为它没用，而是为了和历史 120 跑的读数保持可比 ——
+    这正是做 A/B 消融的开关。实测（n=3 试点）它确实砍掉了 react 的探索轮，
+    但同一批跑里通过率也掉了，所以"划算不划算"必须靠 ab_env_prompt.py 量，
+    不能凭直觉认定是降本。
     """
     return os.environ.get("DAH_ENV_PROMPT", "").strip().lower() \
         not in ("", "0", "false", "off", "no")

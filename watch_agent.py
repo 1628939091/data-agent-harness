@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from daharness.task import load_task, ensure_task_data
 from daharness.env import SandboxEnv
 from daharness.llm import build_llm
-from daharness.agents import build_agent
+from daharness.agents import build_agent, env_prompt_enabled
 from daharness.scoring import check
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -65,7 +65,8 @@ def main() -> None:
     agent.solve(task)
     ok, reason = check(task.checker, env.workspace, task.data_dir)
 
-    print(f"\n========== 轨迹回放：{task_id} × {scaffold}（{tag}）"
+    arm = "环境告知=开" if env_prompt_enabled() else "环境告知=关"
+    print(f"\n========== 轨迹回放：{task_id} × {scaffold}（{tag}，{arm}）"
           f" | 判卷: {'PASS' if ok else 'FAIL'} ({reason}) ==========")
     print(f"token 消耗: {llm.total_tokens}")
     for s in env.steps:
